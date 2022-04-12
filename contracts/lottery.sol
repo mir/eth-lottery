@@ -21,7 +21,7 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
         FUNDS_SENT
     }
     LotteryState public lotteryState;
-    address public winner;
+    address payable public winner;
 
     VRFCoordinatorV2Interface COORDINATOR;
 
@@ -132,7 +132,13 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
         lotteryState = LotteryState.WINNER_CALCULATED;
     }
 
+    function getBalance() public returns(uint256) {
+        return payable(address(this)).balance;
+    }
+
     function sendFundsToWinner() public {
         require(lotteryState == LotteryState.WINNER_CALCULATED, "Winner should be calculated");
+        address payable money = payable(address(this));
+        winner.transfer(getBalance());
     }
 }
