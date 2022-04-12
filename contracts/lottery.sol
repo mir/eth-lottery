@@ -125,7 +125,7 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
     }
 
     function publishWinner(uint256 randomWord) internal {
-        require(lotteryState == LotteryState.STOP_ENTRY, "Lottery should be open");
+        require(lotteryState == LotteryState.STOP_ENTRY, "Lottery should stop entries");
         uint256 players_count = players.length;
         uint256 winner_id = randomWord % players_count;
         winner = players[winner_id];
@@ -133,6 +133,6 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
     }
 
     function sendFundsToWinner() public {
-        require(lotteryState == LotteryState.WINNER_CALCULATED, "Lottery should be open");
+        require(lotteryState == LotteryState.WINNER_CALCULATED, "Winner should be calculated");
     }
 }
