@@ -26,16 +26,16 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
     VRFCoordinatorV2Interface COORDINATOR;
 
      // Your subscription ID.
-    uint64 s_subscriptionId = 2671;
+    uint64 s_subscriptionId;
 
     // Rinkeby coordinator. For other networks,
     // see https://docs.chain.link/docs/vrf-contracts/#configurations
-    address vrfCoordinator = 0x6168499c0cFfCaCD319c818142124B7A15E857ab;
+    address vrfCoordinator;
 
     // The gas lane to use, which specifies the maximum gas price to bump to.
     // For a list of available gas lanes on each network,
     // see https://docs.chain.link/docs/vrf-contracts/#configurations
-    bytes32 keyHash = 0xd89b2bf150e3b9e13446986e571fb9cab24b13cea0a43ea20a6049a85cc807cc;
+    bytes32 keyHash;
 
     // Depends on the number of requested values that you want sent to the
     // fulfillRandomWords() function. Storing each word costs about 20,000 gas,
@@ -56,13 +56,20 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
     address s_owner;
 
 
-    constructor(address _priceFeedAddress) VRFConsumerBaseV2(vrfCoordinator) {
+    constructor(address _vrfCoordinator,
+     address _priceFeedAddress,
+     bytes32 _keyHash,
+     uint64 _subscriptionId
+     ) VRFConsumerBaseV2(vrfCoordinator) {
         COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
         s_owner = msg.sender;
         
         usdEntranceFee = 50 * 10**18; //18 decimals precision
         ethUsdPriceFeed = AggregatorV3Interface(_priceFeedAddress);
+        vrfCoordinator = _vrfCoordinator;
         lotteryState = LotteryState.CLOSED;
+        s_subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
     }
 
     // Assumes the subscription is funded sufficiently.
@@ -126,6 +133,7 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
 
     function publishWinner(uint256 randomWord) internal {
         require(lotteryState == LotteryState.STOP_ENTRY, "Lottery should stop entries");
+        require(randomWord > 0);
         uint256 players_count = players.length;
         uint256 winner_id = randomWord % players_count;
         winner = players[winner_id];
@@ -136,9 +144,14 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
         return payable(address(this)).balance;
     }
 
-    function sendFundsToWinner() public {
+    function sendFundsToWinner() public onlyOwner {
         require(lotteryState == LotteryState.WINNER_CALCULATED, "Winner should be calculated");
         address payable money = payable(address(this));
         winner.transfer(getBalance());
+    }
+
+    function resetLottery() public onlyOwner {
+        players = new address payable[](0);
+        lotteryState = LotteryState.OPEN;
     }
 }
