@@ -60,8 +60,8 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
      address _priceFeedAddress,
      bytes32 _keyHash,
      uint64 _subscriptionId
-     ) VRFConsumerBaseV2(vrfCoordinator) {
-        COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
+     ) VRFConsumerBaseV2(_vrfCoordinator) {
+        COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
         s_owner = msg.sender;
         
         usdEntranceFee = 50 * 10**18; //18 decimals precision
@@ -72,18 +72,6 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
         keyHash = _keyHash;
     }
 
-    // Assumes the subscription is funded sufficiently.
-    function requestRandomWords() internal onlyOwner {
-        // Will revert if subscription is not set and funded.
-        s_requestId = COORDINATOR.requestRandomWords(
-        keyHash,
-        s_subscriptionId,
-        requestConfirmations,
-        callbackGasLimit,
-        numWords
-        );
-    }
-
     function fulfillRandomWords(
         uint256, /* requestId */
         uint256[] memory randomWords
@@ -92,7 +80,7 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
         publishWinner(randomWord);
     }
 
-    function enter() public payable {
+    function enter() external payable {
         require(lotteryState == LotteryState.OPEN);
         require(msg.value >= getEntranceFee(), "Not enough ETH to enter the lottery");
         require(players.length < MAX_PLAYERS, "Too many players");                
@@ -127,8 +115,18 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
     function endLottery() public onlyOwner {
         require(lotteryState == LotteryState.OPEN, "Lottery should be open");    
         require(players.length > 0, "Nobody entered the lottery");    
-        lotteryState = LotteryState.STOP_ENTRY;
-        requestRandomWords();
+        lotteryState = LotteryState.STOP_ENTRY;        
+    }
+
+    function findWinner() external onlyOwner {
+        require(lotteryState == LotteryState.STOP_ENTRY, "Lottery should be stop entries");    
+        s_requestId = COORDINATOR.requestRandomWords(
+        keyHash,
+        s_subscriptionId,
+        requestConfirmations,
+        callbackGasLimit,
+        numWords
+        );
     }
 
     function publishWinner(uint256 randomWord) internal {
@@ -140,17 +138,17 @@ contract Lottery is Ownable, VRFConsumerBaseV2 {
         lotteryState = LotteryState.WINNER_CALCULATED;
     }
 
-    function getBalance() public returns(uint256) {
+    function getBalance() public view returns(uint256) {
         return payable(address(this)).balance;
     }
 
-    function sendFundsToWinner() public onlyOwner {
+    function sendFundsToWinner() external onlyOwner {
         require(lotteryState == LotteryState.WINNER_CALCULATED, "Winner should be calculated");
         address payable money = payable(address(this));
         winner.transfer(getBalance());
     }
 
-    function resetLottery() public onlyOwner {
+    function resetLottery() external onlyOwner {
         players = new address payable[](0);
         lotteryState = LotteryState.OPEN;
     }
